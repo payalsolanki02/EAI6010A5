@@ -1,34 +1,25 @@
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, UploadFile
 from pydantic import BaseModel
 import numpy as np
-from keras.layers import TFSMLayer
-
-# Load model from exported SavedModel folder
-model = TFSMLayer("mnist_model", call_endpoint="serving_default")
+import tensorflow as tf
+from PIL import Image
+import io
 
 app = FastAPI()
-
-class InputData(BaseModel):
-    pixels: list  # 784 or 28x28 pixel values
+model = tf.keras.models.load_model("mnist_model.keras")
 
 @app.post("/predict")
-async def predict(data: InputData):
+async def predict(file: UploadFile = File(...)):
     try:
-        img = np.array(data.pixels)
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert("L").resize((28, 28))
+        image = np.array(image) / 255.0
+        image = image.reshape(1, 28, 28)
 
-        # Reshape if flat
-        if img.shape == (784,):
-            img = img.reshape(28, 28)
+        prediction = model.predict(image)
+        digit = int(np.argmax(prediction))
 
-        # Normalize and reshape for batch
-        img = img.astype("float32") / 255.0
-        img = img.reshape(1, 28, 28)
-
-        prediction = model(img, training=False).numpy()
-        predicted_class = int(np.argmax(prediction))
-        confidence = float(np.max(prediction))
-
-        return {"prediction": predicted_class, "confidence": round(confidence, 4)}
+        return {"digit": digit}
     except Exception as e:
         return {"error": str(e)}
