@@ -1,25 +1,24 @@
 
 from fastapi import FastAPI, File, UploadFile
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse
 import numpy as np
-import tensorflow as tf
 from PIL import Image
-import io
+import tensorflow as tf
+from model import load_mnist_model
 
 app = FastAPI()
-model = tf.keras.models.load_model("mnist_model.keras")
+model = load_mnist_model()
 
-@app.post("/predict")
+@app.get("/")
+def home():
+    return HTMLResponse(content=open("index.html").read(), status_code=200)
+
+@app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert("L").resize((28, 28))
-        image = np.array(image) / 255.0
-        image = image.reshape(1, 28, 28)
-
-        prediction = model.predict(image)
-        digit = int(np.argmax(prediction))
-
-        return {"digit": digit}
-    except Exception as e:
-        return {"error": str(e)}
+    image = Image.open(file.file).convert("L").resize((28, 28))
+    img_array = np.array(image) / 255.0
+    img_array = img_array.reshape(1, 28, 28)
+    prediction = model.predict(img_array)
+    predicted_class = int(np.argmax(prediction))
+    confidence = float(np.max(prediction))
+    return {"class": predicted_class, "confidence": confidence}
