@@ -4,37 +4,30 @@ from pydantic import BaseModel
 import numpy as np
 import tensorflow as tf
 
-# Load the exported TensorFlow SavedModel
-model = tf.keras.models.load_model("mnist_model.keras")
+# Load model in Keras 3 format
+model = tf.keras.models.load_model("mnist_model.keras", compile=False)
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Define input format
 class InputData(BaseModel):
-    pixels: list  # expects a 28x28 nested list OR flattened 784-length list
+    pixels: list
 
 @app.post("/predict")
 def predict(data: InputData):
     try:
-        image_array = np.array(data.pixels)
+        img = np.array(data.pixels)
 
-        # Reshape if flattened
-        if image_array.shape == (784,):
-            image_array = image_array.reshape(28, 28)
+        # Reshape if it's a flat 784 list
+        if img.shape == (784,):
+            img = img.reshape(28, 28)
 
-        # Normalize and reshape for prediction
-        image_array = image_array.astype('float32') / 255.0
-        image_array = image_array.reshape(1, 28, 28)
+        img = img.astype("float32") / 255.0
+        img = img.reshape(1, 28, 28)
 
-        # Make prediction
-        prediction = model.predict(image_array)
-        predicted_class = int(np.argmax(prediction))
-        confidence = float(np.max(prediction))
+        predictions = model.predict(img)
+        predicted_class = int(np.argmax(predictions))
+        confidence = float(np.max(predictions))
 
-        return {
-            "prediction": predicted_class,
-            "confidence": round(confidence, 4)
-        }
+        return {"prediction": predicted_class, "confidence": round(confidence, 4)}
     except Exception as e:
         return {"error": str(e)}
