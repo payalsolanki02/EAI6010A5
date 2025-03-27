@@ -1,6 +1,8 @@
+import numpy as np
 
-import tensorflow as tf
-
-def load_mnist_model():
-    model = tf.keras.models.load_model("mnist_model.keras")
-    return model
+def preprocess_image(image):
+    image = image.resize((28, 28))
+    image = np.array(image)
+    image = image / 255.0
+    image = image.reshape(1, 28, 28)
+    return image
